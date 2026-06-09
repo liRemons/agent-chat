@@ -697,7 +697,10 @@ export function ChatPanel() {
           </div>
           <div className="flex items-center gap-2">
             <Link className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-emerald-200 hover:text-emerald-700" href="/memories">记忆</Link>
-            <button className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-700" type="button" onClick={() => setIsSettingsOpen(true)}>配置</button>
+            <button className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-700" type="button" onClick={() => {
+              console.log('start setting')
+              setIsSettingsOpen(true)
+            }}>配置</button>
             <span className="hidden rounded-2xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white sm:inline-flex">已守护</span>
           </div>
         </header>
