@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ConfirmDialog } from './ConfirmDialog';
 import remarkGfm from 'remark-gfm';
@@ -36,13 +36,43 @@ const autoScrollThresholdPx = 96;
 const agentSettingFields: Array<{
   key: keyof AgentSettings;
   label: string;
+  chineseLabel: string;
+  description: string;
   type: 'password' | 'text';
   placeholder: string;
 }> = [
-  { key: 'OPENAI_API_KEY', label: 'OPENAI_API_KEY', type: 'password', placeholder: '输入模型服务 API Key' },
-  { key: 'OPENAI_MODEL', label: 'OPENAI_MODEL', type: 'text', placeholder: '例如：gpt-4o-mini' },
-  { key: 'OPENAI_BASE_URL', label: 'OPENAI_BASE_URL', type: 'text', placeholder: '例如：https://api.openai.com/v1' },
-  { key: 'AGENT_SESSION_SECRET', label: 'AGENT_SESSION_SECRET', type: 'password', placeholder: '输入服务端会话签名密钥' },
+  {
+    key: 'OPENAI_API_KEY',
+    label: 'OPENAI_API_KEY',
+    chineseLabel: '接口密钥',
+    description: '模型服务的访问密钥，用于调用兼容 OpenAI 协议的模型接口。',
+    type: 'password',
+    placeholder: '输入模型服务 API Key',
+  },
+  {
+    key: 'OPENAI_MODEL',
+    label: 'OPENAI_MODEL',
+    chineseLabel: '模型名称',
+    description: '要调用的模型 ID，例如 qwen、gpt 等模型服务中的具体模型名。',
+    type: 'text',
+    placeholder: '例如：gpt-4o-mini',
+  },
+  {
+    key: 'OPENAI_BASE_URL',
+    label: 'OPENAI_BASE_URL',
+    chineseLabel: '服务地址',
+    description: '模型服务的接口地址，需填写兼容 OpenAI Chat Completions 的 Base URL。',
+    type: 'text',
+    placeholder: '例如：https://api.openai.com/v1',
+  },
+  {
+    key: 'AGENT_SESSION_SECRET',
+    label: 'AGENT_SESSION_SECRET',
+    chineseLabel: '会话密钥',
+    description: '服务端用于签名和校验会话的密钥，建议使用足够长的随机字符串。',
+    type: 'password',
+    placeholder: '输入服务端会话签名密钥',
+  },
 ];
 
 const emptyAgentSettings: AgentSettings = {
@@ -92,6 +122,97 @@ function isNearScrollBottom(element: HTMLDivElement) {
   return element.scrollHeight - element.scrollTop - element.clientHeight < autoScrollThresholdPx;
 }
 
+function getPlainTextFromNode(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(childNode => getPlainTextFromNode(childNode)).join('');
+  }
+
+  return '';
+}
+
+function createHighlightToken(index: number) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let tokenName = '';
+  let remainingIndex = index;
+
+  do {
+    tokenName = alphabet[remainingIndex % alphabet.length] + tokenName;
+    remainingIndex = Math.floor(remainingIndex / alphabet.length) - 1;
+  } while (remainingIndex >= 0);
+
+  return `\uE000${tokenName}\uE001`;
+}
+
+function highlightCodeSyntax(code: string, language: string) {
+  let highlightedCode = code
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const normalizedLanguage = language.toLowerCase();
+  if (!['js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript', 'json', 'bash', 'shell', 'sh'].includes(normalizedLanguage)) {
+    return highlightedCode;
+  }
+
+  const highlightedTokens: string[] = [];
+  const createHighlightedToken = (value: string, className: string) => {
+    const token = createHighlightToken(highlightedTokens.length);
+    highlightedTokens.push(`<span class="${className}">${value}</span>`);
+    return token;
+  };
+
+  highlightedCode = highlightedCode
+    .replace(/(`[\s\S]*?`|".*?"|'.*?')/g, value => createHighlightedToken(value, 'text-emerald-300'))
+    .replace(/(\/\/.*)$/gm, value => createHighlightedToken(value, 'text-slate-500'))
+    .replace(/(#.*)$/gm, value => createHighlightedToken(value, 'text-slate-500'))
+    .replace(/\b(const|let|var|function|return|if|else|for|while|await|async|import|from|export|type|interface|class|new|try|catch|throw)\b/g, value => createHighlightedToken(value, 'text-violet-300'))
+    .replace(/\b(true|false|null|undefined|console|log|JSON|Promise)\b/g, value => createHighlightedToken(value, 'text-sky-300'))
+    .replace(/\b(\d+(?:\.\d+)?)\b/g, value => createHighlightedToken(value, 'text-amber-300'));
+
+  return highlightedTokens.reduce(
+    (currentCode, tokenHtml, tokenIndex) => currentCode.replace(createHighlightToken(tokenIndex), tokenHtml),
+    highlightedCode,
+  );
+}
+
+function CodeBlock({ children, className }: { children: ReactNode; className?: string }) {
+  const [hasCopied, setHasCopied] = useState(false);
+  const languageMatch = /language-(\w+)/.exec(className ?? '');
+  const language = languageMatch?.[1] ?? 'text';
+  const code = getPlainTextFromNode(children).replace(/\n$/, '');
+  const highlightedCode = useMemo(() => highlightCodeSyntax(code, language), [code, language]);
+
+  async function handleCopyCode() {
+    await navigator.clipboard.writeText(code);
+    setHasCopied(true);
+    window.setTimeout(() => {
+      setHasCopied(false);
+    }, 1600);
+  }
+
+  return (
+    <div className="my-3 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-xs leading-5 shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 py-2 text-[11px] text-slate-400">
+        <span className="font-medium tracking-wide">{language}</span>
+        <button
+          className="rounded-lg border border-slate-700 px-2.5 py-1 text-slate-300 transition hover:border-indigo-400 hover:text-white"
+          onClick={handleCopyCode}
+          type="button"
+        >
+          {hasCopied ? '已复制' : '复制'}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-4 text-slate-100">
+        <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+      </pre>
+    </div>
+  );
+}
+
 function MarkdownMessage({ content, isUserMessage }: { content: string; isUserMessage: boolean }) {
   if (isUserMessage) {
     return <div className="whitespace-pre-wrap">{content}</div>;
@@ -110,8 +231,14 @@ function MarkdownMessage({ content, isUserMessage }: { content: string; isUserMe
           ol: ({ children }) => <ol className="my-2 list-decimal space-y-1 pl-5">{children}</ol>,
           li: ({ children }) => <li className="pl-1">{children}</li>,
           blockquote: ({ children }) => <blockquote className="my-3 border-l-4 border-indigo-200 bg-indigo-50/70 px-4 py-2 text-slate-600">{children}</blockquote>,
-          code: ({ children, className }) => <code className={className ?? 'rounded-md bg-slate-200/80 px-1.5 py-0.5 text-[0.85em] text-slate-900'}>{children}</code>,
-          pre: ({ children }) => <pre className="my-3 overflow-x-auto rounded-2xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">{children}</pre>,
+          code: ({ children, className }) => {
+            if (className?.startsWith('language-')) {
+              return <CodeBlock className={className}>{children}</CodeBlock>;
+            }
+
+            return <code className="rounded-md bg-slate-200/80 px-1.5 py-0.5 text-[0.85em] text-slate-900">{children}</code>;
+          },
+          pre: ({ children }) => <>{children}</>,
           table: ({ children }) => <div className="my-3 overflow-x-auto rounded-2xl border border-slate-200"><table className="min-w-full divide-y divide-slate-200 text-left text-xs">{children}</table></div>,
           th: ({ children }) => <th className="bg-slate-100 px-3 py-2 font-semibold text-slate-700">{children}</th>,
           td: ({ children }) => <td className="border-t border-slate-100 px-3 py-2 text-slate-600">{children}</td>,
@@ -145,6 +272,10 @@ export function ChatPanel() {
 
   const activeConversation = conversations.find(conversation => conversation.id === activeConversationId) ?? conversations[0];
   const messages = useMemo(() => activeConversation?.messages ?? [], [activeConversation]);
+
+  function hasMissingSettings(settings: AgentSettings) {
+    return agentSettingFields.some(field => settings[field.key].trim().length === 0);
+  }
 
   useEffect(() => {
     const loadStoredConversationTimer = window.setTimeout(() => {
@@ -210,12 +341,17 @@ export function ChatPanel() {
       const data = (await response.json()) as { settings: AgentSettings };
       if (isMounted) {
         setAgentSettings(data.settings);
+        if (hasMissingSettings(data.settings)) {
+          setSettingsStatus('检测到配置信息不完整，请先补齐配置并保存。');
+          setIsSettingsOpen(true);
+        }
       }
     }
 
     loadSettings().catch(() => {
       if (isMounted) {
-        setSettingsStatus('配置加载失败，请检查服务端日志。');
+        setSettingsStatus('未获取到配置信息，请先完成助手配置。');
+        setIsSettingsOpen(true);
       }
     });
 
@@ -492,23 +628,11 @@ export function ChatPanel() {
           <span className={`h-2.5 w-2.5 rounded-full ${sessionReady ? 'bg-emerald-500' : 'bg-amber-400'}`} />
         </div>
 
-        <div className="space-y-5 p-4">
+        <div className="p-4">
           <button className="flex min-h-11 w-full items-center gap-3 rounded-2xl bg-indigo-50 px-4 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100" type="button" onClick={handleCreateConversation}>
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-indigo-300 text-sm leading-none">+</span>
             <span>新建对话</span>
           </button>
-
-          <nav className="space-y-2">
-            <p className="px-2 text-xs font-semibold text-slate-400">配置</p>
-            <Link className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-indigo-700" href="/memories">
-              <span className="grid w-6 shrink-0 place-items-center">🧠</span>
-              <span>记忆 / 常用提示词</span>
-            </Link>
-            <button className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-indigo-700" type="button" onClick={() => setIsSettingsOpen(true)}>
-              <span className="grid w-6 shrink-0 place-items-center">⚙️</span>
-              <span>助手配置</span>
-            </button>
-          </nav>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -522,9 +646,9 @@ export function ChatPanel() {
               const isEditing = conversation.id === editingConversationId;
 
               return (
-                <div key={conversation.id} className={`group rounded-xl px-2.5 py-2 transition ${isActive ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}>
+                <div key={conversation.id} className={`group relative rounded-xl px-2.5 py-1.5 transition ${isActive ? 'bg-indigo-50 text-indigo-900 shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}>
                   {isEditing ? (
-                    <div className="space-y-1.5">
+                    <div>
                       <input
                         autoFocus
                         className="min-h-8 w-full rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-semibold text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
@@ -533,28 +657,25 @@ export function ChatPanel() {
                         onKeyDown={handleRenameKeyDown}
                         onBlur={saveRenameConversation}
                       />
-                      <p className="text-[0.68rem] text-slate-400">Enter 保存，Esc 取消</p>
                     </div>
                   ) : (
-                    <button className="w-full text-left" type="button" onClick={() => handleConversationSelect(conversation.id)}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="line-clamp-1 text-xs font-semibold">{conversation.title}</p>
-                        <span className="shrink-0 text-[0.68rem] text-slate-400">{formatConversationTime(conversation.updatedAt)}</span>
+                    <>
+                      <button className="w-full text-left" type="button" onClick={() => handleConversationSelect(conversation.id)}>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="line-clamp-1 text-xs font-semibold">{conversation.title}</p>
+                          <span className="shrink-0 text-[0.68rem] text-slate-400 transition group-hover:opacity-0">{formatConversationTime(conversation.updatedAt)}</span>
+                        </div>
+                      </button>
+                      <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-1 group-hover:flex">
+                        <button className="rounded-md bg-white/90 px-1.5 py-0.5 text-[0.65rem] font-semibold text-slate-400 shadow-sm transition hover:text-indigo-600" type="button" onClick={() => startRenameConversation(conversation)}>
+                          重命名
+                        </button>
+                        <button className="rounded-md bg-white/90 px-1.5 py-0.5 text-[0.65rem] font-semibold text-slate-400 shadow-sm transition hover:text-rose-600" type="button" onClick={() => setPendingDeleteConversation(conversation)}>
+                          删除
+                        </button>
                       </div>
-                      <p className="mt-0.5 line-clamp-1 text-[0.68rem] text-slate-400">{conversation.messages[conversation.messages.length - 1]?.content || '还没有消息'}</p>
-                    </button>
+                    </>
                   )}
-
-                  {!isEditing ? (
-                    <div className="mt-1 flex justify-end gap-1 opacity-0 transition group-hover:opacity-100">
-                      <button className="rounded-md px-1.5 py-0.5 text-[0.65rem] font-semibold text-slate-400 transition hover:bg-white hover:text-indigo-600" type="button" onClick={() => startRenameConversation(conversation)}>
-                        重命名
-                      </button>
-                      <button className="rounded-md px-1.5 py-0.5 text-[0.65rem] font-semibold text-slate-400 transition hover:bg-white hover:text-rose-600" type="button" onClick={() => setPendingDeleteConversation(conversation)}>
-                        删除
-                      </button>
-                    </div>
-                  ) : null}
                 </div>
               );
             })}
@@ -575,8 +696,8 @@ export function ChatPanel() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-emerald-200 hover:text-emerald-700 md:hidden" href="/memories">记忆</Link>
-            <button className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-700 md:hidden" type="button" onClick={() => setIsSettingsOpen(true)}>配置</button>
+            <Link className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-emerald-200 hover:text-emerald-700" href="/memories">记忆</Link>
+            <button className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-700" type="button" onClick={() => setIsSettingsOpen(true)}>配置</button>
             <span className="hidden rounded-2xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white sm:inline-flex">已守护</span>
           </div>
         </header>
@@ -653,7 +774,15 @@ export function ChatPanel() {
 
                 return (
                   <label key={field.key} className="block">
-                    <span className="text-xs font-semibold text-slate-500">{field.label}</span>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                      <span>{field.label}（{field.chineseLabel}）</span>
+                      <span className="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-slate-300 text-[10px] text-slate-400">
+                        ?
+                        <span className="pointer-events-none absolute left-1/2 top-6 z-10 hidden w-56 -translate-x-1/2 rounded-xl bg-slate-950 px-3 py-2 text-left text-[11px] font-medium leading-5 text-white shadow-xl group-hover/help:block">
+                          {field.description}
+                        </span>
+                      </span>
+                    </span>
                     <span className="relative mt-2 block">
                       <input className={`min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50 ${isSecretField ? 'pr-12' : ''}`} placeholder={field.placeholder} type={inputType} value={agentSettings[field.key]} onChange={event => handleSettingChange(field.key, event)} disabled={isSavingSettings} />
                       {isSecretField ? (

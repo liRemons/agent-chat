@@ -1,6 +1,12 @@
 {
   "scripts": {
     "dev": "next dev",
+    "build": "next build && mkdir -p .next/standalone/.next && cp -R .next/static .next/standalone/.next/static && if [ -d public ]; then cp -R public .next/standalone/public; fi",
+    "start": "next start",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:restart": "pm2 restart agent-chat",
+    "pm2:stop": "pm2 stop agent-chat",
+    "pm2:logs": "pm2 logs agent-chat",
     "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {
