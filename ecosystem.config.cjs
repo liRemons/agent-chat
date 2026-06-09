@@ -8,7 +8,7 @@ module.exports = {
       instances: 1,
       env: {
         NODE_ENV: 'production',
-        HOSTNAME: '127.0.0.1',
+        HOSTNAME: '0.0.0.0',
         PORT: '3000',
       },
       max_memory_restart: '512M',
