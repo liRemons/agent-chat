@@ -732,7 +732,7 @@ export function ChatPanel() {
                         <p className={`mb-1 text-xs font-semibold ${isUserMessage ? 'text-indigo-100' : 'text-slate-400'}`}>{isUserMessage ? '我' : 'AI 助手'}</p>
                         <MarkdownMessage content={message.content || '正在生成回复...'} isUserMessage={isUserMessage} />
                       </div>
-                      {isUserMessage ? <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-sm font-bold text-white shadow-lg shadow-amber-100">泉</div> : null}
+                      {isUserMessage ? <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-sm font-bold text-white shadow-lg shadow-amber-100"></div> : null}
                     </article>
                   );
                 })}
