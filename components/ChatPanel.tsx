@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChangeEvent, FormEvent, KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, KeyboardEvent, ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ConfirmDialog } from './ConfirmDialog';
 import remarkGfm from 'remark-gfm';
@@ -102,6 +102,7 @@ function wait(milliseconds: number) {
 }
 
 function formatConversationTime(value: string) {
+  if (!value) return '';
   return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 }
 
@@ -252,7 +253,11 @@ function MarkdownMessage({ content, isUserMessage }: { content: string; isUserMe
 }
 
 export function ChatPanel() {
-  const initialConversation = useMemo(() => createConversation(), []);
+  const stableId = useId();
+  const initialConversation = useMemo(
+    () => ({ id: `conversation-${stableId}`, title: '新建对话', messages: [] as ChatMessage[], updatedAt: '' }),
+    [stableId],
+  );
   const [conversations, setConversations] = useState<ChatConversation[]>([initialConversation]);
   const [activeConversationId, setActiveConversationId] = useState(initialConversation.id);
   const [input, setInput] = useState('');
@@ -288,6 +293,12 @@ export function ChatPanel() {
           storedConversations.some(conversation => conversation.id === storedActiveConversationId)
             ? String(storedActiveConversationId)
             : storedConversations[0].id,
+        );
+      } else {
+        setConversations(currentConversations =>
+          currentConversations.map(conversation =>
+            conversation.updatedAt === '' ? { ...conversation, updatedAt: new Date().toISOString() } : conversation,
+          ),
         );
       }
 
