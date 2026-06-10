@@ -4,6 +4,20 @@ const next = require('next');
 const fs = require('fs');
 const path = require('path');
 
+// 手动加载 .env.local（standalone 模式下 Next.js 不会自动加载）
+const envLocalPath = path.join(__dirname, '.env.local');
+if (fs.existsSync(envLocalPath)) {
+  for (const line of fs.readFileSync(envLocalPath, 'utf8').split('\n')) {
+    const separatorIndex = line.indexOf('=');
+    if (separatorIndex === -1 || line.startsWith('#')) continue;
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim().replace(/^["']|["']$/g, '');
+    if (key && !process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
 // 1. 配置你的证书路径
 const httpsOptions = {
   key: fs.readFileSync(path.join(__dirname,'./a.key')),
