@@ -9,6 +9,7 @@ interface SessionPayload {
 }
 
 function getSessionSecret() {
+  // 会话签名密钥只允许从真实服务端环境变量读取，不能由浏览器配置或 .env.local 共享。
   const sessionSecret = process.env.AGENT_SESSION_SECRET;
 
   if (!sessionSecret) {
@@ -19,6 +20,7 @@ function getSessionSecret() {
 }
 
 function encodeBase64Url(value: Uint8Array | string) {
+  // Cookie 里只放 base64url 文本，避免 JSON 中的特殊字符破坏 Cookie 格式。
   const source = typeof value === 'string' ? Buffer.from(value) : Buffer.from(value);
   return source.toString('base64url');
 }
@@ -28,10 +30,12 @@ function decodeBase64Url(value: string) {
 }
 
 function signPayload(payload: string) {
+  // 使用 HMAC-SHA256 签名 payload，服务端校验时可发现 Cookie 是否被篡改。
   return crypto.createHmac('sha256', getSessionSecret()).update(payload).digest('base64url');
 }
 
 export function createSignedSession(userId: string) {
+  // Cookie 格式为 payload.signature；payload 可解码，signature 用于防篡改。
   const payload = encodeBase64Url(JSON.stringify({
     userId,
     issuedAt: Date.now(),
@@ -42,6 +46,7 @@ export function createSignedSession(userId: string) {
 }
 
 export function verifySignedSession(sessionToken: string | undefined): SessionPayload | null {
+  // 任何缺失、格式错误、签名不匹配或 payload 不完整的 Cookie 都视为无会话。
   if (!sessionToken) {
     return null;
   }
@@ -70,6 +75,7 @@ export async function getCurrentSession() {
 }
 
 export async function setSessionCookie(userId: string) {
+  // httpOnly 防止前端脚本读取 Cookie；生产环境启用 secure 只允许 HTTPS 传输。
   const cookieStore = await cookies();
   cookieStore.set(sessionCookieName, createSignedSession(userId), {
     httpOnly: true,

@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { runAgent } from '@/lib/agent/runAgent';
 import { validateUserInput, redactSensitiveText } from '@/lib/security/guardrails';
-import { agentConfig, assertServerConfig } from '@/lib/server/config';
+import { agentConfig, assertModelSettings, assertServerConfig, normalizeModelSettings, type IncomingModelSettings } from '@/lib/server/config';
 import { getCurrentSession } from '@/lib/server/session';
 import { writeAuditLog } from '@/lib/server/audit';
 
 export const maxDuration = 30;
+
+// 前端每次聊天会把当前对话历史和浏览器本地模型配置一起提交到这里。
 
 interface IncomingMessage {
   role: 'user' | 'assistant';
@@ -15,9 +17,11 @@ interface IncomingMessage {
 interface ChatRequestBody {
   messages?: IncomingMessage[];
   conversationId?: string;
+  settings?: IncomingModelSettings;
 }
 
 function normalizeMessages(messages: IncomingMessage[] | undefined) {
+  // 只保留用户和助手的有效文本，避免脏数据进入 Agent 上下文。
   return (messages ?? [])
     .filter(message => (message.role === 'user' || message.role === 'assistant') && message.content.trim().length > 0)
     .map(message => ({
@@ -27,6 +31,7 @@ function normalizeMessages(messages: IncomingMessage[] | undefined) {
 }
 
 function getLatestUserInput(messages: IncomingMessage[]) {
+  // Agent 只处理最后一条用户消息；更早的消息作为 history 提供上下文。
   const latestUserMessage = [...messages].reverse().find(message => message.role === 'user');
   return latestUserMessage?.content?.trim() ?? '';
 }
@@ -36,6 +41,7 @@ function createRequestId() {
 }
 
 function streamPlainText(text: string) {
+  // 前端按流式文本读取响应，这里即使是一次性文本也统一包装成 ReadableStream。
   const encoder = new TextEncoder();
 
   return new Response(
@@ -72,6 +78,7 @@ async function resolveWithTimeout<T>(task: Promise<T>, timeoutMs: number, timeou
 }
 
 export async function POST(request: Request) {
+  // requestId 贯穿审计日志、Agent 执行和错误排查。
   const requestId = createRequestId();
 
   try {
@@ -83,6 +90,14 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as ChatRequestBody;
+    // 模型配置来自当前浏览器，而不是服务器 .env.local，避免被其他访问者共享或读取。
+    const modelSettings = normalizeModelSettings(body.settings);
+    try {
+      assertModelSettings(modelSettings);
+    } catch {
+      return NextResponse.json({ error: '模型配置不完整，请先在当前浏览器完成助手配置。' }, { status: 400 });
+    }
+
     const userId = session.userId;
     const conversationId = body.conversationId ?? requestId;
     const conversationMessages = normalizeMessages(body.messages);
@@ -103,11 +118,13 @@ export async function POST(request: Request) {
     }
 
     const inputGuardrailResult = validateUserInput(userInput);
+    // 用户输入先过安全规则，命中敏感/危险内容时不进入模型，直接返回拦截原因。
     if (!inputGuardrailResult.allowed) {
       return streamPlainText(inputGuardrailResult.reason);
     }
 
     const agentOutput = await resolveWithTimeout(
+      // runAgent 会串起模型、上下文压缩、工具调用和审计日志。
       runAgent({
         requestId,
         userId,
@@ -115,6 +132,7 @@ export async function POST(request: Request) {
         role: 'user',
         input: userInput,
         history: conversationMessages,
+        modelSettings,
       }),
       agentConfig.requestTimeoutMs,
       'Agent 请求超时。请检查模型服务地址、API Key、网络代理或稍后重试。',

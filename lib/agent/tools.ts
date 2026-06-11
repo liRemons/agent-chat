@@ -12,8 +12,10 @@ interface ToolRuntimeContext {
 }
 
 export function createAgentTools(runtimeContext: ToolRuntimeContext) {
+  // 每次 Agent 请求都会创建带当前用户、会话和审计信息的工具实例。
   const getCityCoordinatesTool = tool(
     async ({ city }: { city: string }) => {
+      // 工具真正执行前先过安全策略，未授权或高风险操作会直接返回拦截原因。
       const policyResult = evaluateToolPolicy('get_city_coordinates', runtimeContext.role);
 
       writeAuditLog({
@@ -29,6 +31,7 @@ export function createAgentTools(runtimeContext: ToolRuntimeContext) {
       });
 
       if (!policyResult.allowed) {
+        // 策略拒绝时把原因返回给模型，让模型向用户解释而不是继续执行外部请求。
         return policyResult.reason;
       }
 

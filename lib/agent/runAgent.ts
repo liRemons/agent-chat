@@ -2,7 +2,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { SystemMessage, ToolMessage, type BaseMessage } from '@langchain/core/messages';
 import { buildConversationContext, type ConversationMessage } from '@/lib/agent/context';
 import { createAgentTools } from '@/lib/agent/tools';
-import { agentConfig } from '@/lib/server/config';
+import { agentConfig, type ModelSettings } from '@/lib/server/config';
 
 interface RunAgentOptions {
   requestId: string;
@@ -11,9 +11,11 @@ interface RunAgentOptions {
   role: string;
   input: string;
   history: ConversationMessage[];
+  modelSettings: ModelSettings;
 }
 
 function stringifyMessageContent(content: unknown): string {
+  // LangChain 的消息内容可能是字符串，也可能是多段结构化内容；这里统一转成纯文本。
   if (typeof content === 'string') {
     return content;
   }
@@ -34,6 +36,7 @@ function stringifyMessageContent(content: unknown): string {
 }
 
 function stringifyToolResult(toolResult: unknown): string {
+  // 工具返回值可能是字符串、消息对象或普通对象；进入模型上下文前统一序列化。
   if (typeof toolResult === 'string') {
     return toolResult;
   }
@@ -45,23 +48,27 @@ function stringifyToolResult(toolResult: unknown): string {
   return JSON.stringify(toolResult);
 }
 
-function createChatModel() {
+function createChatModel(modelSettings: ModelSettings) {
+  // 模型配置来自当前请求，避免使用服务端共享 .env.local 暴露给不同访问者。
   return new ChatOpenAI({
-    model: agentConfig.modelName,
+    apiKey: modelSettings.openAiApiKey,
+    model: modelSettings.modelName,
     temperature: 0,
     timeout: agentConfig.modelTimeoutMs,
-    configuration: agentConfig.openAiBaseUrl
+    configuration: modelSettings.openAiBaseUrl
       ? {
-          baseURL: agentConfig.openAiBaseUrl,
+          baseURL: modelSettings.openAiBaseUrl,
         }
       : undefined,
   });
 }
 
 export async function runAgent(options: RunAgentOptions): Promise<string> {
-  const model = createChatModel();
+  // Agent 主流程：创建模型、绑定工具、拼接上下文，然后循环处理模型回复和工具调用。
+  const model = createChatModel(options.modelSettings);
 
   const tools = createAgentTools({
+    // 把请求级身份信息注入工具层，工具执行时才能做权限判断和审计记录。
     requestId: options.requestId,
     userId: options.userId,
     conversationId: options.conversationId,
@@ -69,8 +76,9 @@ export async function runAgent(options: RunAgentOptions): Promise<string> {
   });
   const toolByName = new Map<string, (typeof tools)[number]>(tools.map(agentTool => [agentTool.name, agentTool]));
   const modelWithTools = model.bindTools(tools);
+  // executedToolResults 记录“工具名 + 参数”的结果，防止模型重复请求同一工具。
   const executedToolResults = new Map<string, string>();
-  const conversationContext = await buildConversationContext(options.history);
+  const conversationContext = await buildConversationContext(options.history, options.modelSettings);
   const messages: BaseMessage[] = [
     new SystemMessage(
       [
@@ -90,6 +98,7 @@ export async function runAgent(options: RunAgentOptions): Promise<string> {
     messages.push(aiMessage);
 
     const toolCalls = aiMessage.tool_calls ?? [];
+    // 没有工具调用说明模型已经产出最终回答，直接返回给 /api/chat。
     if (toolCalls.length === 0) {
       return stringifyMessageContent(aiMessage.content);
     }
@@ -98,6 +107,7 @@ export async function runAgent(options: RunAgentOptions): Promise<string> {
       const selectedTool = toolByName.get(toolCall.name);
       const toolCallId = toolCall.id ?? `${toolCall.name}-${iteration}`;
       const toolCacheKey = `${toolCall.name}:${JSON.stringify(toolCall.args)}`;
+      // 同一个工具和参数只执行一次，避免模型重复调用造成死循环或浪费请求。
       const cachedToolResult = executedToolResults.get(toolCacheKey);
       if (cachedToolResult) {
         return cachedToolResult;

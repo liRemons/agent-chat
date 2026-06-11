@@ -1,0 +1,157 @@
+.page {
+  min-height: 100dvh;
+  padding: 24px;
+  background: radial-gradient(circle at top left, #dbeafe 0, #f8fafc 36%, #f0fdfa 100%);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 352px minmax(0, 1fr);
+  gap: 20px;
+  width: 100%;
+  max-width: 1280px;
+  min-height: calc(100dvh - 48px);
+  margin: 0 auto;
+}
+
+.title {
+  margin: 8px 0 0;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.description {
+  margin: 8px 0 0;
+  color: #64748b;
+}
+
+.mutedText {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.filterGroup {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.segmentedFilter {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  background: #f1f5f9;
+  border-radius: 14px;
+}
+
+.filterButton {
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  overflow: hidden;
+  color: #475569;
+  font: inherit;
+  font-size: 13px;
+  line-height: 34px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filterButton:hover {
+  color: #4338ca;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.filterButtonActive {
+  color: #fff;
+  background: #4f46e5;
+  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.22);
+}
+
+.listSection {
+  max-height: calc(100dvh - 310px);
+  overflow-y: auto;
+  margin-top: 16px;
+}
+
+.listLoading {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+}
+
+.emptyList {
+  padding: 32px 0;
+}
+
+.memoryList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.memoryCard {
+  width: 100%;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.memoryCard:hover {
+  border-color: #818cf8;
+  box-shadow: 0 8px 22px rgba(79, 70, 229, 0.1);
+}
+
+.memoryCardActive {
+  background: #eef2ff;
+  border-color: #4f46e5;
+}
+
+.cardTitle {
+  display: block;
+  margin-top: 8px;
+}
+
+.cardSummary {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.detailTitle {
+  margin: 4px 0 0;
+}
+
+.detailTags {
+  margin-bottom: 16px;
+}
+
+.contentPreview {
+  max-height: calc(100dvh - 220px);
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.previewText {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 767px) {
+  .page {
+    padding: 12px;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

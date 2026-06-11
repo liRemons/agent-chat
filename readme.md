@@ -12,7 +12,7 @@
 
 | 模块 | 推荐技术 | 选型理由 |
 | ------ |------ |------ |
-| **全栈框架** | Next.js (App Router) + React + TailwindCSS | 前端舒适区，轻松实现 SSR、API Routes 和流式渲染 |
+| **全栈框架** | Next.js (App Router) + React + Ant Design | 前端舒适区，轻松实现 SSR、API Routes、组件化布局和流式渲染 |
 | **Agent 编排** | **LangChain.js** (核心) + LangGraph | JS生态最成熟，完美支持 Planner、Memory、Tool Calling |
 | **大模型层** | OpenAI (GPT-4o) / Claude 3.5 / DeepSeek | 推理能力与工具调用（Function Calling）最强的模型 |
 | **对话交互** | **Vercel AI SDK** (`ai/react`) | 丝滑对接 React，内置流式输出（Streaming）和中间状态捕获 |
@@ -80,13 +80,26 @@
 
 - `app/api/session/route.ts`：创建服务端签名会话 Cookie，前端不传用户身份明文。
 - `app/api/chat/route.ts`：统一承接对话请求，完成会话校验、输入拦截、Agent 执行、输出脱敏和流式文本响应。
+- `app/api/memories/route.ts`：管理项目级和全局级记忆文件，负责读取索引、创建正文文件和删除条目。
 - `lib/agent/runAgent.ts`：实现 LangChain 工具调用闭环，模型产生 Tool Call 后会执行工具并把 Tool Result 回灌给模型。
+- `lib/agent/context.ts`：负责对话历史转换和上下文压缩，避免长历史直接塞入模型。
 - `lib/agent/tools.ts`：集中注册 Agent Tool，并在执行前接入规则引擎和审计日志。
-- `lib/agent/weather.ts`：通过 Open-Meteo 地理编码与天气接口获取实时天气数据。
+- `lib/agent/weather.ts`：通过 Open-Meteo 地理编码接口获取城市经纬度数据。
 - `lib/security/guardrails.ts`：实现输入侧 Prompt Injection 拦截与输出侧手机号、邮箱脱敏。
 - `lib/security/rules.ts`：实现工具白名单、风险等级、角色权限与审批状态判定。
 - `lib/server/session.ts`：实现 HMAC 签名会话，避免前端伪造用户身份。
-- `components/ChatPanel.tsx`：实现聊天 UI、会话初始化、请求发送和流式文本读取。
+- `app/providers.tsx`：提供 Ant Design 全局中文语言包、主题 Token，以及 message/modal 等上下文能力。
+- `app/layout.tsx`：接入 `AntdRegistry`，确保 Next.js App Router 下 antd 样式正确注入。
+- `components/ChatPanel.tsx`：聊天页状态编排组件，负责会话、输入、配置、移动端抽屉和流式响应的状态流转。
+- `components/chat/ChatMainSection.tsx`：聊天主区域 UI，包含顶部栏、消息列表和底部输入框。
+- `components/chat/ConversationSidebar.tsx`：桌面端会话侧栏，负责展示会话数量、新建入口和会话列表。
+- `components/chat/MobileConversationDrawer.tsx`：移动端会话抽屉，复用同一套会话列表交互。
+- `components/chat/ConversationList.tsx`：会话列表项组件，集中处理选中态、重命名态和删除入口。
+- `components/chat/MarkdownMessage.tsx`：助手 Markdown 消息渲染组件，支持表格、链接、代码块和复制代码。
+- `components/chat/SettingsModal.tsx`：模型配置弹窗，配置仅保存到当前浏览器 localStorage。
+- `components/chat/chatStorage.ts`：聊天本地存储 key、会话创建、配置解析、滚动判断等工具函数。
+- `components/chat/settingsFields.ts`：模型配置表单字段元数据。
+- `components/chat/types.ts`：聊天相关类型定义。
 
 ---
 
@@ -94,9 +107,11 @@
 
 ### 1. 统一配置与密钥管理
 
-- `OPENAI_API_KEY`、`AGENT_SESSION_SECRET` 只在服务端读取。
-- `OPENAI_MODEL`、`CONTEXT_COMPRESSION_CHARACTER_THRESHOLD` 支持通过环境变量配置。
-- `assertServerConfig()` 在请求入口校验必要环境变量。
+- `AGENT_SESSION_SECRET` 只允许通过真实服务端环境变量配置，用于签名浏览器会话 Cookie。
+- `OPENAI_API_KEY`、`OPENAI_MODEL`、`OPENAI_BASE_URL` 由用户在前端配置弹窗填写，只保存在当前浏览器 `localStorage`，并随每次聊天请求提交给服务端。
+- 服务端不再通过 `.env.local` 共享模型配置，避免多人访问时读取到同一份 API Key。
+- `CONTEXT_COMPRESSION_CHARACTER_THRESHOLD`、超时时间等运行参数仍可通过服务器环境变量配置。
+- `assertServerConfig()` 在请求入口校验必要的服务端会话密钥，`assertModelSettings()` 校验当前请求携带的模型配置。
 
 ### 2. 会话与多用户隔离
 
@@ -113,7 +128,7 @@
 ### 4. 工具调用闭环
 
 - `lib/agent/runAgent.ts` 支持模型产生 Tool Call、执行 Tool、回灌 Tool Result、再次调用模型生成最终答案。
-- `lib/agent/weather.ts` 调用 Open-Meteo 的地理编码与天气接口，返回实时天气数据。
+- `lib/agent/weather.ts` 调用 Open-Meteo 的地理编码接口，返回城市经纬度数据。
 
 ### 5. 安全守卫与规则引擎
 
@@ -136,6 +151,13 @@
 2. **所有外部工具调用必须经过白名单验证**
 3. **敏感操作必须有人工审批环节**
 4. **输出内容必须进行 PII 脱敏处理**
+
+### 前端组件拆分约定
+
+- 项目 UI 统一使用 Ant Design：`Button`、`Input`、`Layout`、`Drawer`、`Modal`、`message`、`Card`、`List`、`Tag`、`Radio`、`Select` 等组件优先来自组件库。
+- 聊天页以 `components/ChatPanel.tsx` 作为状态编排入口，复杂 UI 拆到 `components/chat/*` 子组件中。
+- 单个源码文件除注释外尽量控制在 600 行以内，避免页面组件同时承担状态、布局、渲染和工具函数职责。
+- 新增聊天相关 UI 时优先放入 `components/chat/`，通用弹窗或提示组件继续放在 `components/` 根目录。
 
 ### 性能优化落地
 

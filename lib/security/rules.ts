@@ -10,12 +10,14 @@ export interface ToolPolicy {
 }
 
 const toolPolicies: ToolPolicy[] = [
+  // 低风险查询类工具可以自动放行，但仍会记录审计日志。
   {
     operation: 'get_city_coordinates',
     risk: 'P3',
     autoApprove: true,
     allowedRoles: ['user', 'admin'],
   },
+  // 高风险写入/删除类操作默认只给管理员，并要求人工审批。
   {
     operation: 'delete_data',
     risk: 'P0',
@@ -25,6 +27,7 @@ const toolPolicies: ToolPolicy[] = [
 ];
 
 export function evaluateToolPolicy(operation: string, role: string) {
+  // 工具执行前统一查策略表；没有显式配置的工具一律拒绝。
   const policy = toolPolicies.find(item => item.operation === operation);
 
   if (!policy) {

@@ -1,24 +1,36 @@
 'use client';
 
 import Link from 'next/link';
+import { ArrowLeftOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
+import { Button, Card, Empty, Flex, Form, Input, Modal, Select, Space, Spin, Tag } from 'antd';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAppMessage } from '@/components/AppMessage';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useMemo, useState } from 'react';
+import styles from './Memories.module.css';
 
 type MemoryScope = 'project' | 'global';
+// memory 表示长期记忆文件，prompt 表示用户可复用的常用提示词文件。
 type MemoryKind = 'memory' | 'prompt';
+// 这四类和记忆系统 frontmatter 的 type 字段保持一致，用于区分保存目的。
 type MemoryType = 'preference' | 'feedback' | 'insight' | 'reference';
 interface MemoryItem {
+  // id 存储在浏览器 localStorage 中，用来稳定选中某一条记录。
   id: string;
+  // scope 仅用于前端分类筛选，当前临时统一保存到浏览器 localStorage。
   scope: MemoryScope;
+  // kind 决定它在页面上展示为记忆还是常用提示词。
   kind: MemoryKind;
+  // title 和 summary 通常来自 md 文件 frontmatter 的 name/description。
   title: string;
   summary: string;
+  // fileName 用作本地条目的展示标识，不会写入磁盘。
   fileName: string;
+  // content 是完整 md 内容，页面预览时会去掉 frontmatter。
   content: string;
 }
 
 interface MemoryFormState {
+  // 新增弹窗里的所有字段集中存在 formState，提交时保存到浏览器 localStorage。
   scope: MemoryScope;
   kind: MemoryKind;
   memoryType: MemoryType;
@@ -28,6 +40,7 @@ interface MemoryFormState {
 }
 
 const emptyFormState: MemoryFormState = {
+  // 默认创建项目级记忆，避免用户不小心把只属于当前项目的内容写到全局。
   scope: 'project',
   kind: 'memory',
   memoryType: 'preference',
@@ -54,29 +67,99 @@ const memoryTypeLabels: Record<MemoryType, string> = {
 };
 
 function getContentPreview(content: string) {
+  // 记忆文件带 frontmatter，这里只截取真正的正文给页面预览。
   const frontmatterEndIndex = content.indexOf('---', 4);
   const contentWithoutFrontmatter = frontmatterEndIndex >= 0 ? content.slice(frontmatterEndIndex + 3) : content;
   return contentWithoutFrontmatter.trim() || '暂无正文';
 }
 
-function getMemoryDirectoryLabel(scope: MemoryScope) {
-  return scope === 'project' ? '当前项目 data/memories' : '全局 ~/testAgent-memories';
+function getMemoryDirectoryLabel() {
+  return '浏览器本地存储（临时）';
+}
+
+const memoriesStorageKey = 'agent-chat:memories';
+
+function createSlug(value: string) {
+  const normalizedValue = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return normalizedValue || 'untitled';
+}
+
+function createFrontmatter(title: string, summary: string, content: string, memoryType: MemoryType) {
+  const createdAt = new Date().toISOString().slice(0, 19);
+
+  return `---\nname: ${title}\ndescription: ${summary}\ntype: ${memoryType}\ncreatedAt: ${createdAt}\n---\n${content.trim()}\n`;
+}
+
+function readStoredMemories() {
+  const rawValue = window.localStorage.getItem(memoriesStorageKey);
+  if (!rawValue) {
+    return [];
+  }
+
+  const parsedValue = JSON.parse(rawValue) as unknown;
+  if (!Array.isArray(parsedValue)) {
+    return [];
+  }
+
+  return parsedValue as MemoryItem[];
+}
+
+function writeStoredMemories(items: MemoryItem[]) {
+  window.localStorage.setItem(memoriesStorageKey, JSON.stringify(items));
+}
+
+function createMemoryItem(formState: MemoryFormState): MemoryItem {
+  const title = formState.title.trim();
+  const summary = formState.summary.trim();
+  const content = formState.content.trim();
+
+  if (!title || !summary || !content) {
+    throw new Error('请补全标题、摘要和正文后再保存。');
+  }
+
+  const memoryType = formState.kind === 'prompt' ? 'reference' : formState.memoryType;
+  const filePrefix = formState.kind === 'prompt' ? 'prompt' : memoryType;
+  const fileName = `${filePrefix}_${createSlug(title)}.md`;
+  const id = `${formState.scope}:${Date.now()}:${fileName}`;
+
+  return {
+    id,
+    scope: formState.scope,
+    kind: formState.kind,
+    title,
+    summary,
+    fileName,
+    content: createFrontmatter(title, summary, content, memoryType),
+  };
 }
 
 export default function MemoriesPage() {
-  const [items, setItems] = useState<MemoryItem[]>([]);
+  // 记忆中心页面：负责展示、筛选、新增和删除项目级/全局级记忆。
+  const [items, setItems] = useState<MemoryItem[]>(() => {
+    if (typeof window === 'undefined') {
+      return [];
+    }
+
+    return readStoredMemories();
+  });
   const [formState, setFormState] = useState<MemoryFormState>(emptyFormState);
   const [activeScope, setActiveScope] = useState<MemoryScope | 'all'>('all');
   const [activeKind, setActiveKind] = useState<MemoryKind | 'all'>('all');
   const [selectedItemId, setSelectedItemId] = useState('');
   const { message, contextHolder } = useAppMessage();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState('');
   const [pendingDeleteItem, setPendingDeleteItem] = useState<MemoryItem | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const filteredItems = useMemo(() => {
+    // 根据左侧筛选条件过滤记忆列表，all 表示不过滤。
     return items.filter(item => {
       const scopeMatched = activeScope === 'all' || item.scope === activeScope;
       const kindMatched = activeKind === 'all' || item.kind === activeKind;
@@ -84,91 +167,63 @@ export default function MemoriesPage() {
     });
   }, [activeKind, activeScope, items]);
 
-  const selectedItem = items.find(item => item.id === selectedItemId) ?? filteredItems[0];
+  const selectedItem = useMemo(
+    () => filteredItems.find(item => item.id === selectedItemId) ?? filteredItems[0] ?? null,
+    [filteredItems, selectedItemId],
+  );
+  // 详情区只展示当前筛选结果里的条目，避免筛选后仍显示已被过滤掉的旧选中项。
 
-  async function parseErrorMessage(response: Response, fallbackMessage: string) {
-    try {
-      const data = (await response.json()) as { error?: string };
-      return data.error || fallbackMessage;
-    } catch {
-      return fallbackMessage;
-    }
-  }
-
-  const loadMemories = useCallback(async () => {
+  const loadMemories = useCallback(() => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/memories', { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(await parseErrorMessage(response, '记忆加载失败，请稍后重试。'));
-      }
-
-      const data = (await response.json()) as { items: MemoryItem[] };
-      setItems(data.items);
-      setSelectedItemId(currentSelectedItemId => currentSelectedItemId || data.items[0]?.id || '');
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '记忆加载失败，请稍后重试。');
+      const storedItems = readStoredMemories();
+      setItems(storedItems);
+      setSelectedItemId(currentSelectedItemId => currentSelectedItemId || storedItems[0]?.id || '');
+    } catch {
+      message.error('记忆加载失败，请检查浏览器本地存储是否可用。');
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    const loadTimer = window.setTimeout(() => {
-      void loadMemories();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(loadTimer);
-    };
-  }, [loadMemories]);
+  }, [message]);
 
   function updateFormField<FieldName extends keyof MemoryFormState>(fieldName: FieldName, value: MemoryFormState[FieldName]) {
+    // 表单字段统一从这里更新，保证新增弹窗的状态结构始终完整。
     setFormState(currentFormState => ({
       ...currentFormState,
       [fieldName]: value,
     }));
   }
 
-  async function handleCreateItem(event: FormEvent<HTMLFormElement>) {
+  function handleCreateItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
     try {
-      const response = await fetch('/api/memories', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formState),
-      });
-
-      if (!response.ok) {
-        throw new Error(await parseErrorMessage(response, '保存失败，请检查输入内容。'));
-      }
-
-      const data = (await response.json()) as { item: MemoryItem };
-      setItems(currentItems => [...currentItems, data.item]);
-      setSelectedItemId(data.item.id);
+      const nextItem = createMemoryItem(formState);
+      const nextItems = [...items, nextItem];
+      writeStoredMemories(nextItems);
+      setItems(nextItems);
+      setSelectedItemId(nextItem.id);
       setFormState(currentFormState => ({
         ...emptyFormState,
         scope: currentFormState.scope,
         kind: currentFormState.kind,
         memoryType: currentFormState.memoryType,
       }));
-      message.success(`保存成功，已写入 ${getMemoryDirectoryLabel(data.item.scope)}。`);
+      message.success('保存成功，已写入浏览器本地存储。');
       setIsCreateModalOpen(false);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '保存失败，请稍后重试。');
+      message.error(error instanceof Error ? error.message : '保存失败，请检查浏览器本地存储是否可用。');
     } finally {
       setIsSaving(false);
     }
   }
 
   function requestDeleteItem(item: MemoryItem) {
+    // 这里只记录待删除项，真正删除动作交给 ConfirmDialog 的确认按钮。
     setPendingDeleteItem(item);
   }
 
-  async function confirmDeleteItem() {
+  function confirmDeleteItem() {
     if (!pendingDeleteItem) {
       return;
     }
@@ -176,233 +231,246 @@ export default function MemoriesPage() {
     const item = pendingDeleteItem;
     setDeletingItemId(item.id);
     try {
-      const response = await fetch('/api/memories', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          scope: item.scope,
-          fileName: item.fileName,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await parseErrorMessage(response, '删除失败，请稍后重试。'));
-      }
-
       const nextItems = items.filter(currentItem => currentItem.id !== item.id);
+      writeStoredMemories(nextItems);
       setItems(nextItems);
       setSelectedItemId(nextItems[0]?.id || '');
       setPendingDeleteItem(null);
-      message.success('删除成功，已同步更新索引。');
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '删除失败，请稍后重试。');
+      message.success('删除成功，已同步更新浏览器本地存储。');
+    } catch {
+      message.error('删除失败，请检查浏览器本地存储是否可用。');
     } finally {
       setDeletingItemId('');
     }
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe_0,#f8fafc_36%,#f0fdfa_100%)] px-4 py-6 text-slate-950 sm:px-6 lg:px-8">
+    <main className={styles.page}>
+      {/* antd App Provider 已经接管 message 容器，这里保留兼容返回值。 */}
       {contextHolder}
-      <div className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-7xl gap-5 xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <aside className="rounded-[2rem] border border-white/70 bg-white/90 p-5 shadow-2xl shadow-slate-200/70 backdrop-blur-xl">
-          <div className="flex items-start justify-between gap-3">
+      <div className={styles.layout}>
+        <Card>
+          <Flex align="flex-start" justify="space-between" gap={16}>
             <div>
-              <p className="text-xs font-semibold tracking-[0.2em] text-indigo-500">记忆中心</p>
-              <h1 className="mt-2 text-2xl font-bold text-slate-950">记忆 / 常用提示词</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-500">查看、创建和删除项目级或全局级配置。</p>
+              <span className={styles.mutedText}>记忆中心</span>
+              <h2 className={styles.title}>记忆 / 常用提示词</h2>
+              <p className={styles.description}>
+                查看、创建和删除项目级或全局级配置。
+              </p>
             </div>
-            <div className="flex shrink-0 flex-col gap-2">
-              <button className="rounded-2xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-100 transition hover:bg-indigo-500" type="button" onClick={() => setIsCreateModalOpen(true)}>
+            <Space orientation="vertical">
+              <Button icon={<PlusOutlined />} type="primary" onClick={() => setIsCreateModalOpen(true)}>
                 新增
-              </button>
-              <Link className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-center text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-700" href="/">
-                返回
+              </Button>
+              <Link href="/">
+                <Button icon={<ArrowLeftOutlined />}>返回</Button>
               </Link>
-            </div>
-          </div>
+            </Space>
+          </Flex>
 
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            {(['all', 'project', 'global'] as const).map(scope => (
-              <button
-                key={scope}
-                className={`min-h-10 rounded-2xl px-3 text-xs font-semibold transition ${
-                  activeScope === scope ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'border border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
-                }`}
-                type="button"
-                onClick={() => setActiveScope(scope)}
-              >
-                {scope === 'all' ? '全部范围' : scopeLabels[scope]}
-              </button>
-            ))}
-            {(['all', 'memory', 'prompt'] as const).map(kind => (
-              <button
-                key={kind}
-                className={`min-h-10 rounded-2xl px-3 text-xs font-semibold transition ${
-                  activeKind === kind ? 'bg-slate-950 text-white shadow-lg shadow-slate-200' : 'border border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
-                }`}
-                type="button"
-                onClick={() => setActiveKind(kind)}
-              >
-                {kind === 'all' ? '全部类型' : kindLabels[kind]}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-5 space-y-2 overflow-y-auto pr-1 xl:max-h-[calc(100vh-20rem)]">
-            {isLoading ? <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">正在加载...</p> : null}
-            {!isLoading && filteredItems.length === 0 ? <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">暂无匹配项。</p> : null}
-            {filteredItems.map(item => (
-              <button
-                key={item.id}
-                className={`w-full rounded-2xl border p-4 text-left transition ${
-                  selectedItem?.id === item.id ? 'border-indigo-200 bg-indigo-50/80' : 'border-slate-100 bg-white hover:border-indigo-100 hover:bg-slate-50'
-                }`}
-                type="button"
-                onClick={() => setSelectedItemId(item.id)}
-              >
-                <div className="flex items-center gap-2 text-[0.7rem] font-semibold text-slate-400">
-                  <span>{scopeLabels[item.scope]}</span>
-                  <span>·</span>
-                  <span>{kindLabels[item.kind]}</span>
-                </div>
-                <p className="mt-2 line-clamp-1 text-sm font-bold text-slate-900">{item.title}</p>
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{item.summary}</p>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        <article className="min-h-0 overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 shadow-2xl shadow-slate-200/70 backdrop-blur-xl">
-          <div className="border-b border-slate-100 p-5 sm:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-500">当前选中</p>
-                <h2 className="mt-1 truncate text-2xl font-bold text-slate-950">{selectedItem?.title || '暂无记忆'}</h2>
-                {selectedItem ? (
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700">{scopeLabels[selectedItem.scope]}</span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{kindLabels[selectedItem.kind]}</span>
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">{selectedItem.fileName}</span>
-                    <span className="rounded-full bg-sky-50 px-3 py-1 text-sky-700">{getMemoryDirectoryLabel(selectedItem.scope)}</span>
-                  </div>
-                ) : null}
-              </div>
-
-              {selectedItem ? (
+          <div className={styles.filterGroup}>
+            <div className={styles.segmentedFilter}>
+              {([
+                { label: '全部范围', value: 'all' },
+                { label: scopeLabels.project, value: 'project' },
+                { label: scopeLabels.global, value: 'global' },
+              ] as Array<{ label: string; value: MemoryScope | 'all' }>).map(option => (
                 <button
-                  className="min-h-10 rounded-2xl border border-rose-100 bg-rose-50 px-4 text-sm font-semibold text-rose-600 transition hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  key={option.value}
                   type="button"
-                  disabled={deletingItemId === selectedItem.id}
-                  onClick={() => requestDeleteItem(selectedItem)}
+                  className={activeScope === option.value ? `${styles.filterButton} ${styles.filterButtonActive}` : styles.filterButton}
+                  onClick={() => setActiveScope(option.value)}
                 >
-                  {deletingItemId === selectedItem.id ? '删除中' : '删除'}
+                  {option.label}
                 </button>
-              ) : null}
+              ))}
+            </div>
+            <div className={styles.segmentedFilter}>
+              {([
+                { label: '全部类型', value: 'all' },
+                { label: kindLabels.memory, value: 'memory' },
+                { label: kindLabels.prompt, value: 'prompt' },
+              ] as Array<{ label: string; value: MemoryKind | 'all' }>).map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={activeKind === option.value ? `${styles.filterButton} ${styles.filterButtonActive}` : styles.filterButton}
+                  onClick={() => setActiveKind(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="max-h-[calc(100vh-14rem)] overflow-y-auto p-5 sm:p-6">
-            <p className="whitespace-pre-wrap rounded-3xl border border-slate-100 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
+
+          <div className={styles.listSection}>
+            {isLoading ? (
+              <div className={styles.listLoading}>
+                <Spin description="加载记忆中" />
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <Empty className={styles.emptyList} description="暂无匹配项" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            ) : (
+              <div className={styles.memoryList}>
+                {filteredItems.map(item => {
+                  const cardClassName = selectedItem?.id === item.id
+                    ? `${styles.memoryCard} ${styles.memoryCardActive}`
+                    : styles.memoryCard;
+
+                  return (
+                    <Card
+                      hoverable
+                      key={item.id}
+                      size="small"
+                      onClick={() => setSelectedItemId(item.id)}
+                      className={cardClassName}
+                    >
+                      <Space size={6} wrap>
+                        <Tag color="blue">{scopeLabels[item.scope]}</Tag>
+                        <Tag>{kindLabels[item.kind]}</Tag>
+                      </Space>
+                      <strong className={styles.cardTitle}>
+                        {item.title}
+                      </strong>
+                      <p className={styles.cardSummary}>
+                        {item.summary}
+                      </p>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <Card
+          title={
+            <div>
+              <span className={styles.mutedText}>当前选中</span>
+              <h2 className={styles.detailTitle}>
+                {selectedItem?.title || '暂无记忆'}
+              </h2>
+            </div>
+          }
+          extra={
+            selectedItem ? (
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                loading={deletingItemId === selectedItem.id}
+                onClick={() => requestDeleteItem(selectedItem)}
+              >
+                删除
+              </Button>
+            ) : null
+          }
+        >
+          {selectedItem ? (
+            <Space className={styles.detailTags} size={8} wrap>
+              <Tag color="blue">{scopeLabels[selectedItem.scope]}</Tag>
+              <Tag>{kindLabels[selectedItem.kind]}</Tag>
+              <Tag color="green">{selectedItem.fileName}</Tag>
+              <Tag color="cyan">{getMemoryDirectoryLabel()}</Tag>
+            </Space>
+          ) : null}
+          <Card className={styles.contentPreview} type="inner">
+            <p className={styles.previewText}>
               {selectedItem ? getContentPreview(selectedItem.content) : '左侧选择一条记忆，或点击新增按钮创建。'}
             </p>
-          </div>
-        </article>
-
+          </Card>
+        </Card>
       </div>
 
-      {isCreateModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-6 backdrop-blur-sm">
-          <div className="flex max-h-[calc(100vh-3rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-white p-5 shadow-2xl shadow-slate-950/20 sm:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-lg font-bold text-slate-950">新增条目</p>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
-                  保存到：{getMemoryDirectoryLabel(formState.scope)}，并同步更新索引。
-                </p>
-              </div>
-              <button
-                aria-label="关闭新增弹窗"
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-lg leading-none text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-              >
-                ×
-              </button>
-            </div>
-            <form className="mt-5 flex min-h-0 flex-1 flex-col" onSubmit={handleCreateItem}>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 pb-5">
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-500">范围</span>
-              <select className="mt-2 min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" value={formState.scope} onChange={event => updateFormField('scope', event.target.value as MemoryScope)}>
-                <option value="project">项目级</option>
-                <option value="global">全局</option>
-              </select>
-            </label>
+      <Modal
+        centered
+        footer={null}
+        open={isCreateModalOpen}
+        title="新增条目"
+        width={720}
+        onCancel={() => setIsCreateModalOpen(false)}
+      >
+        <p className={styles.description}>
+          保存到：{getMemoryDirectoryLabel()}。
+        </p>
+        <Form component="form" layout="vertical" onSubmitCapture={handleCreateItem}>
+          <Form.Item label="范围">
+            <Select
+              value={formState.scope}
+              onChange={value => updateFormField('scope', value)}
+              options={[
+                { label: '项目级', value: 'project' },
+                { label: '全局', value: 'global' },
+              ]}
+            />
+          </Form.Item>
 
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-500">类型</span>
-              <select className="mt-2 min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" value={formState.kind} onChange={event => updateFormField('kind', event.target.value as MemoryKind)}>
-                <option value="memory">记忆</option>
-                <option value="prompt">常用提示词</option>
-              </select>
-            </label>
+          <Form.Item label="类型">
+            <Select
+              value={formState.kind}
+              onChange={value => updateFormField('kind', value)}
+              options={[
+                { label: '记忆', value: 'memory' },
+                { label: '常用提示词', value: 'prompt' },
+              ]}
+            />
+          </Form.Item>
 
-            {formState.kind === 'memory' ? (
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-500">记忆分类</span>
-                <select className="mt-2 min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" value={formState.memoryType} onChange={event => updateFormField('memoryType', event.target.value as MemoryType)}>
-                  {Object.entries(memoryTypeLabels).map(([memoryType, label]) => (
-                    <option key={memoryType} value={memoryType}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+          {formState.kind === 'memory' ? (
+            <Form.Item label="记忆分类">
+              <Select
+                value={formState.memoryType}
+                onChange={value => updateFormField('memoryType', value)}
+                options={Object.entries(memoryTypeLabels).map(([memoryType, label]) => ({ label, value: memoryType }))}
+              />
+            </Form.Item>
+          ) : null}
 
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-500">标题</span>
-              <input className="mt-2 min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" placeholder="例如：代码评审常用提示词" value={formState.title} onChange={event => updateFormField('title', event.target.value)} />
-            </label>
+          <Form.Item label="标题">
+            <Input
+              placeholder="例如：代码评审常用提示词"
+              value={formState.title}
+              onChange={event => updateFormField('title', event.target.value)}
+            />
+          </Form.Item>
 
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-500">摘要</span>
-              <input className="mt-2 min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" placeholder="用于索引的一句话说明" value={formState.summary} onChange={event => updateFormField('summary', event.target.value)} />
-            </label>
+          <Form.Item label="摘要">
+            <Input
+              placeholder="用于索引的一句话说明"
+              value={formState.summary}
+              onChange={event => updateFormField('summary', event.target.value)}
+            />
+          </Form.Item>
 
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-500">正文</span>
-              <textarea className="mt-2 min-h-44 w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" placeholder="写入提示词或记忆正文" value={formState.content} onChange={event => updateFormField('content', event.target.value)} />
-            </label>
-          </div>
+          <Form.Item label="正文">
+            <Input.TextArea
+              autoSize={{ minRows: 7, maxRows: 14 }}
+              placeholder="写入提示词或记忆正文"
+              value={formState.content}
+              onChange={event => updateFormField('content', event.target.value)}
+            />
+          </Form.Item>
 
-          <div className="sticky bottom-0 -mx-5 mt-0 grid grid-cols-2 gap-3 border-t border-slate-100 bg-white/95 px-5 pt-4 sm:-mx-6 sm:px-6">
-            <button className="min-h-11 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-lg shadow-indigo-100 transition hover:-translate-y-0.5 hover:bg-indigo-500 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50" type="submit" disabled={isSaving}>
-              {isSaving ? '保存中' : '保存条目'}
-            </button>
-            <button className="min-h-11 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-700" type="button" onClick={loadMemories} disabled={isLoading}>
+          <Flex justify="space-between" gap={12}>
+            <Button icon={<ReloadOutlined />} onClick={loadMemories} disabled={isLoading}>
               重新加载
-            </button>
-          </div>
-        </form>
-          </div>
-        </div>
-      ) : null}
-
+            </Button>
+            <Button htmlType="submit" icon={<SaveOutlined />} loading={isSaving} type="primary">
+              保存条目
+            </Button>
+          </Flex>
+        </Form>
+      </Modal>
 
       <ConfirmDialog
         open={Boolean(pendingDeleteItem)}
         title="确认删除记忆"
-        description={pendingDeleteItem ? `确认删除「${pendingDeleteItem.title}」吗？删除后会同步更新索引。` : ''}
+        description={pendingDeleteItem ? `确认删除「${pendingDeleteItem.title}」吗？删除后会同步更新浏览器本地存储。` : ''}
         confirmText="删除"
         cancelText="取消"
         isConfirming={Boolean(pendingDeleteItem && deletingItemId === pendingDeleteItem.id)}
         onCancel={() => setPendingDeleteItem(null)}
         onConfirm={confirmDeleteItem}
       />
-
     </main>
   );
 }

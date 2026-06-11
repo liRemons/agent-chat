@@ -32,6 +32,7 @@ async function fetchJsonWithTimeout<T>(url: URL): Promise<T> {
 }
 
 export async function fetchCityCoordinates(city: string) {
+  // Open-Meteo 地理编码接口只需要城市名；这里固定返回最匹配的一条结果。
   const geocodingUrl = new URL('https://geocoding-api.open-meteo.com/v1/search');
   geocodingUrl.searchParams.set('name', city);
   geocodingUrl.searchParams.set('count', '1');
