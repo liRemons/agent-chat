@@ -3,9 +3,9 @@ import type { AgentSettings, ChatConversation } from './types';
 export const typewriterIntervalMs = 12;
 
 // localStorage key 集中定义，方便以后改名或做数据迁移。
-export const conversationsStorageKey = 'testAgent.chat.conversations';
-export const activeConversationStorageKey = 'testAgent.chat.activeConversationId';
-export const agentSettingsStorageKey = 'testAgent.chat.agentSettings';
+export const conversationsStorageKey = 'remons.agent.chat.conversations';
+export const activeConversationStorageKey = 'remons.agent.chat.activeConversationId';
+export const agentSettingsStorageKey = 'remons.agent.chat.agentSettings';
 export const autoScrollThresholdPx = 96;
 
 export const emptyAgentSettings: AgentSettings = {

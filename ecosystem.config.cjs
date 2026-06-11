@@ -13,7 +13,7 @@ module.exports = {
         NODE_ENV: 'production',
         // HOSTNAME: '0.0.0.0',
         // PORT: '3000',
-        AGENT_SESSION_SECRET: 'remons-agent-chat'
+        AGENT_SESSION_SECRET: 'remons.agent-chat'
       },
       // 内存超过阈值时让 PM2 自动重启，避免长期运行后内存异常累积。
       max_memory_restart: '512M',
