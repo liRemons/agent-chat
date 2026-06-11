@@ -76,9 +76,6 @@ export function SettingsModal({
         </div>
 
         <div className={styles.settingsActions}>
-          <span className={styles.mutedText}>
-            {settingsStatus || '配置仅保存到当前浏览器 localStorage；服务端会话密钥由服务器环境变量提供。'}
-          </span>
           <Button htmlType="submit" loading={isSavingSettings} type="primary">
             保存配置
           </Button>
