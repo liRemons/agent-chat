@@ -11,7 +11,7 @@ module.exports = {
       env: {
         // 生产模式会启用 Next.js 的生产运行逻辑。
         NODE_ENV: 'production',
-        // HOSTNAME: '0.0.0.0',
+        HOSTNAME: '0.0.0.0',
         // PORT: '3000',
         AGENT_SESSION_SECRET: 'remons.agent-chat'
       },
