@@ -15,7 +15,7 @@ const httpsOptions = {
 
 // Next.js 的请求处理器负责接管所有页面、静态资源和 API 路由。
 const dev = process.env.NODE_ENV !== 'production';
-const app = next({ dev });
+const app = next({ dev, dir: __dirname });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
