@@ -49,8 +49,8 @@ function normalizeMessages(messages: IncomingMessage[] | undefined) {
 
 function normalizeMemories(memories: IncomingMemory[] | undefined): NormalizedMemory[] {
   return (memories ?? [])
-    .map(memory => ({
-      scope: memory.scope === 'global' ? 'global' : 'project',
+    .map<NormalizedMemory>(memory => ({
+      scope: memory?.scope === 'global' ? 'global' : 'project',
       kind: memory.kind === 'prompt' ? 'prompt' : 'memory',
       title: typeof memory.title === 'string' ? memory.title.trim() : '',
       summary: typeof memory.summary === 'string' ? memory.summary.trim() : '',

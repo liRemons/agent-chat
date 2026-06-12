@@ -101,7 +101,7 @@ export function parseStoredMemories(value: string | null): AgentMemoryContext[] 
     return storedMemories
       .filter(memory => memory.scope === 'project' || memory.scope === 'global')
       .filter(memory => memory.kind === 'memory' || memory.kind === 'prompt')
-      .map(memory => ({
+      .map<AgentMemoryContext>(memory => ({
         scope: memory.scope === 'global' ? 'global' : 'project',
         kind: memory.kind === 'prompt' ? 'prompt' : 'memory',
         title: String(memory.title ?? '').trim(),
