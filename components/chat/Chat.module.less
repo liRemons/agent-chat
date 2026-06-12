@@ -56,10 +56,15 @@
   height: 100%;
 }
 
-.titleArea {
+
+.titleArea:global(.ant-space) {
   min-width: 0;
   flex: 1;
   overflow: hidden;
+}
+
+.titleArea:global(.ant-space .ant-space-item)  {
+  width: 100%;
 }
 
 .mobileMenuButton {
@@ -81,43 +86,54 @@
 }
 
 .assistantAvatar {
-  display: grid;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  place-items: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  color: #fff;
-  line-height: 34px;
-  background: #4f46e5;
-  border-radius: 50% !important;
+  &:global(.ant-avatar) {
+    display: grid;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    place-items: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    color: #fff;
+    line-height: 34px;
+    background: #4f46e5;
+    border-radius: 50% !important;
+  }
 }
 
 .assistantBubble {
-  background: #fff;
-  border-color: #edf0f5;
+  &:global(.ant-card) {
+    background: #fff;
+    border-color: #edf0f5;
+  }
 }
 
 .userAvatar {
-  flex-shrink: 0;
-  background: #fa8c16;
+  &:global(.ant-avatar) {
+    flex-shrink: 0;
+    background: #fa8c16;
+  }
 }
 
 .titleText {
   min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .title {
   display: block;
   max-width: 320px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .subtitle {
+  margin-left: 4px;
   color: #64748b;
   font-size: 12px;
-  margin-left: 4px;
 }
 
 .mutedText {
@@ -125,19 +141,23 @@
 }
 
 .headerActions {
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
-  align-items: center;
-  white-space: nowrap;
+  &:global(.ant-space) {
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
+    align-items: center;
+    white-space: nowrap;
+  }
 }
 
 .messageScroll {
-  min-height: 0;
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  background: radial-gradient(circle at top, #eef2ff 0, #f8fafc 38%, #f7f9ff 100%);
+  &:global(.ant-layout-content) {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background: radial-gradient(circle at top, #eef2ff 0, #f8fafc 38%, #f7f9ff 100%);
+  }
 }
 
 .messageContainer {
@@ -148,16 +168,18 @@
 }
 
 .emptyCard {
-  display: flex;
-  min-height: calc(100dvh - 190px);
-  align-items: center;
-  justify-content: center;
-  border-style: dashed;
-  background: rgba(255, 255, 255, 0.72);
-}
+  &:global(.ant-card) {
+    display: flex;
+    min-height: calc(100dvh - 190px);
+    align-items: center;
+    justify-content: center;
+    border-style: dashed;
+    background: rgba(255, 255, 255, 0.72);
 
-.emptyCard :global(.ant-card-body) {
-  width: 100%;
+    :global(.ant-card-body) {
+      width: 100%;
+    }
+  }
 }
 
 .emptyTitle {
@@ -165,27 +187,30 @@
 }
 
 .bubble {
-  min-width: 100px;
-  max-width: min(86%, 760px);
-  overflow: hidden;
-}
+  &:global(.ant-card) {
+    min-width: 100px;
+    max-width: min(86%, 760px);
+    overflow: hidden;
 
-.bubble :global(.ant-card-body) {
-  padding: 8px 12px !important;
+    :global(.ant-card-body) {
+      padding: 8px 12px !important;
+    }
+  }
 }
 
 .userBubble {
-  color: #fff !important;
-  background: #4f46e5;
-  border-color: #4f46e5;
-}
+  &:global(.ant-card) {
+    color: #fff !important;
+    background: #4f46e5;
+    border-color: #4f46e5;
 
-.userBubble :global(.ant-card-body),
-.userBubble :global(.ant-typography),
-.userBubble a,
-.userBubble p,
-.userBubble div {
-  color: #0f172a;
+    :global(.ant-card-body),
+    a,
+    p,
+    div {
+      color: #fff;
+    }
+  }
 }
 
 .bubbleRole {
@@ -196,17 +221,18 @@
 }
 
 .inputFooter {
-  flex: 0 0 auto;
-  padding: 14px !important;
-  background: rgba(255, 255, 255, 0.94) !important;
-  border-top: 1px solid #edf0f5;
-  backdrop-filter: blur(16px);
+  &:global(.ant-layout-footer) {
+    flex: 0 0 auto;
+    padding: 14px !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    border-top: 1px solid #edf0f5;
+    backdrop-filter: blur(16px);
+  }
 }
 
 .inputForm {
   display: flex;
   width: 100%;
-  max-width: 960px;
   min-height: 56px;
   gap: 12px;
   align-items: center;
@@ -216,31 +242,52 @@
   border: 1px solid #edf0f5;
   border-radius: 18px;
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+
+  :global(.ant-input) {
+    min-height: 32px !important;
+    padding: 5px 0 !important;
+    line-height: 22px !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    resize: none !important;
+  }
+
+  :global(.ant-btn) {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+  }
+
+  &:has(.messageInput:disabled) {
+    background: #fff;
+    border-color: #edf0f5;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  }
 }
 
-.inputForm :global(.ant-input) {
-  min-height: 32px !important;
-  padding: 5px 0 !important;
-  line-height: 22px !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  resize: none !important;
-}
+.messageInput {
+  &:global(.ant-input),
+  &:global(.ant-input-disabled),
+  &:disabled {
+    color: #0f172a !important;
+    background: transparent !important;
+    opacity: 1 !important;
+  }
 
-.inputForm :global(.ant-btn) {
-  width: 42px;
-  min-width: 42px;
-  height: 42px;
-  flex-shrink: 0;
+  &::placeholder,
+  &:disabled::placeholder {
+    color: #94a3b8 !important;
+  }
 }
 
 .sidebarPanel {
-  padding: 0 16px;
   display: flex;
   width: 100%;
   height: 100%;
   flex-direction: column;
   overflow: hidden;
+  padding: 0 16px;
   background: #fff;
 }
 
@@ -275,8 +322,10 @@
 }
 
 .createButton {
-  height: 42px;
-  border-radius: 14px;
+  &:global(.ant-btn) {
+    height: 42px;
+    border-radius: 14px;
+  }
 }
 
 .sidebarListSection {
@@ -284,8 +333,8 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  padding-bottom: 14px;
   overflow: hidden;
+  padding-bottom: 14px;
 }
 
 .listHeader {
@@ -295,6 +344,15 @@
   justify-content: space-between;
   margin-bottom: 8px;
   padding: 0 6px;
+
+  &:global(.ant-flex) {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 0 6px;
+  }
 }
 
 .listHeaderTitle {
@@ -339,14 +397,18 @@
   min-height: 48px;
   gap: 4px;
   align-items: center;
-  padding: 4px;
   overflow: hidden;
+  padding: 4px;
   border-radius: 12px;
   transition: background 0.2s ease, box-shadow 0.2s ease;
-}
 
-.conversationItem:hover {
-  background: #f4f7ff;
+  &:hover {
+    background: #f4f7ff;
+
+    .conversationActions {
+      opacity: 1;
+    }
+  }
 }
 
 .conversationItemActive {
@@ -361,24 +423,24 @@
   flex: 1;
   align-items: center;
   justify-content: flex-start;
-  padding: 4px 6px;
   overflow: hidden;
+  padding: 4px 6px;
   font: inherit;
   text-align: left;
   cursor: pointer;
   background: transparent;
   border: 0;
   border-radius: 10px;
-}
 
-.conversationTitleButton:hover {
-  background: rgba(255, 255, 255, 0.56);
-}
+  &:hover {
+    background: rgba(255, 255, 255, 0.56);
+  }
 
-.conversationTitleButton > span {
-  display: flex;
-  width: 100%;
-  min-width: 0;
+  > span {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 .conversationTitleContent {
@@ -416,25 +478,25 @@
   flex-shrink: 0;
   gap: 2px;
   opacity: 0.72;
+
+  :global(.ant-btn) {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    padding: 0;
+  }
 }
 
-.conversationActions :global(.ant-btn) {
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
-  padding: 0;
-}
-
-.conversationItem:hover .conversationActions {
-  opacity: 1;
-}
-
-.mobileDrawer :global(.ant-drawer-body) {
-  padding: 16px !important;
+.mobileDrawer {
+  :global(.ant-drawer-body) {
+    padding: 16px !important;
+  }
 }
 
 .mobileDrawerContent {
-  height: 100%;
+  &:global(.ant-flex) {
+    height: 100%;
+  }
 }
 
 .settingsFormGrid {
@@ -456,16 +518,16 @@
 
 @media (max-width: 767px) {
   .desktopSidebar,
-  .guardedButton {
+  .guardedButton:global(.ant-btn) {
     display: none !important;
   }
 
-  .mobileMenuButton {
+  .mobileMenuButton:global(.ant-btn) {
     display: inline-flex !important;
   }
 
-  .header,
-  .inputFooter {
+  .header:global(.ant-layout-header),
+  .inputFooter:global(.ant-layout-footer) {
     padding-inline: 12px !important;
   }
 
@@ -473,11 +535,11 @@
     max-width: 180px;
   }
 
-  .messageScroll {
+  .messageScroll:global(.ant-layout-content) {
     padding: 20px 12px;
   }
 
-  .bubble {
+  .bubble:global(.ant-card) {
     max-width: 88%;
   }
 

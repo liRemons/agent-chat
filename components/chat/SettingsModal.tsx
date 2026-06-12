@@ -1,7 +1,7 @@
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { Button, Form, Input, Modal, Tooltip } from 'antd';
 import { ChangeEvent, FormEvent } from 'react';
-import styles from './Chat.module.css';
+import styles from './Chat.module.less';
 import type { AgentSettings } from './types';
 import { agentSettingFields } from './settingsFields';
 

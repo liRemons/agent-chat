@@ -19,6 +19,14 @@ export interface AgentSettings {
   OPENAI_BASE_URL: string;
 }
 
+export interface AgentMemoryContext {
+  scope: 'project' | 'global';
+  kind: 'memory' | 'prompt';
+  title: string;
+  summary: string;
+  content: string;
+}
+
 export interface AgentSettingField {
   // 配置弹窗的字段元数据，页面根据它统一渲染输入框、提示文案和密文展示按钮。
   key: keyof AgentSettings;

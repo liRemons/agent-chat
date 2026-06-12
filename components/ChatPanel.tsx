@@ -7,7 +7,7 @@ import { ConversationSidebar } from './chat/ConversationSidebar';
 import { MobileConversationDrawer } from './chat/MobileConversationDrawer';
 import { SettingsModal } from './chat/SettingsModal';
 import { agentSettingFields } from './chat/settingsFields';
-import styles from './chat/Chat.module.css';
+import styles from './chat/Chat.module.less';
 import {
   activeConversationStorageKey,
   agentSettingsStorageKey,
@@ -16,8 +16,10 @@ import {
   createConversation,
   emptyAgentSettings,
   isNearScrollBottom,
+  memoriesStorageKey,
   parseStoredAgentSettings,
   parseStoredConversations,
+  parseStoredMemories,
   typewriterIntervalMs,
   wait,
 } from './chat/chatStorage';
@@ -415,6 +417,7 @@ export function ChatPanel() {
     window.setTimeout(() => scrollMessagesToBottom('smooth'), 0);
 
     try {
+      const memoryContext = parseStoredMemories(window.localStorage.getItem(memoriesStorageKey));
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -423,6 +426,7 @@ export function ChatPanel() {
           // 只把 role/content 发给服务端，前端内部 id 不参与 Agent 上下文。
           messages: nextMessages.map(message => ({ role: message.role, content: message.content })),
           settings: agentSettings,
+          memories: memoryContext,
         }),
       });
 

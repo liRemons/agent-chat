@@ -1,10 +1,11 @@
 'use client';
 
+import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import { ReactNode, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import styles from './MarkdownMessage.module.css';
+import styles from './MarkdownMessage.module.less';
 
 function getPlainTextFromNode(node: ReactNode): string {
   // ReactMarkdown 传进来的代码块 children 可能是嵌套节点，这里递归取出可复制的纯文本。
@@ -86,9 +87,15 @@ function CodeBlock({ children, className }: { children: ReactNode; className?: s
     <div className={styles.codeBlock}>
       <div className={styles.codeHeader}>
         <span className={styles.codeLanguage}>{language}</span>
-        <Button size="small" onClick={handleCopyCode}>
-          {hasCopied ? '已复制' : '复制'}
-        </Button>
+        <Button
+          aria-label={hasCopied ? '代码已复制' : '复制代码'}
+          className={hasCopied ? `${styles.copyButton} ${styles.copyButtonCopied}` : styles.copyButton}
+          icon={hasCopied ? <CheckOutlined /> : <CopyOutlined />}
+          size="small"
+          title={hasCopied ? '已复制' : '复制'}
+          type="text"
+          onClick={handleCopyCode}
+        />
       </div>
       <pre>
         <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
@@ -97,10 +104,23 @@ function CodeBlock({ children, className }: { children: ReactNode; className?: s
   );
 }
 
-export function MarkdownMessage({ content, isUserMessage }: { content: string; isUserMessage: boolean }) {
+export function MarkdownMessage({ content, isGenerating = false, isUserMessage }: { content: string; isGenerating?: boolean; isUserMessage: boolean }) {
   // 用户消息按纯文本展示；助手消息按 Markdown 渲染，支持表格、列表和代码块。
   if (isUserMessage) {
     return <div className={styles.userText}>{content}</div>;
+  }
+
+  if (isGenerating) {
+    return (
+      <div className={styles.generatingText} aria-live="polite" aria-label="AI 正在生成回复">
+        <span>正在生成回复</span>
+        <span className={styles.loadingDots} aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      </div>
+    );
   }
 
   return (

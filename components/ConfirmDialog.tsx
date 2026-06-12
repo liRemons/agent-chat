@@ -2,7 +2,7 @@
 
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { Modal } from 'antd';
-import styles from './ConfirmDialog.module.css';
+import styles from './ConfirmDialog.module.less';
 
 interface ConfirmDialogProps {
   open: boolean;

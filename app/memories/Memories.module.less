@@ -28,6 +28,8 @@
 }
 
 .mutedText {
+  display: inline-block;
+  margin-top: 10px;
   color: #64748b;
   font-size: 14px;
 }
@@ -52,8 +54,8 @@
 .filterButton {
   min-width: 0;
   height: 34px;
-  padding: 0 8px;
   overflow: hidden;
+  padding: 0 8px;
   color: #475569;
   font: inherit;
   font-size: 13px;
@@ -66,11 +68,11 @@
   border: 0;
   border-radius: 10px;
   transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
 
-.filterButton:hover {
-  color: #4338ca;
-  background: rgba(255, 255, 255, 0.68);
+  &:hover {
+    color: #4338ca;
+    background: rgba(255, 255, 255, 0.68);
+  }
 }
 
 .filterButtonActive {
@@ -92,7 +94,9 @@
 }
 
 .emptyList {
-  padding: 32px 0;
+  &:global(.ant-empty) {
+    padding: 32px 0;
+  }
 }
 
 .memoryList {
@@ -102,19 +106,23 @@
 }
 
 .memoryCard {
-  width: 100%;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
+  &:global(.ant-card) {
+    width: 100%;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 
-.memoryCard:hover {
-  border-color: #818cf8;
-  box-shadow: 0 8px 22px rgba(79, 70, 229, 0.1);
+    &:hover {
+      border-color: #818cf8;
+      box-shadow: 0 8px 22px rgba(79, 70, 229, 0.1);
+    }
+  }
 }
 
 .memoryCardActive {
-  background: #eef2ff;
-  border-color: #4f46e5;
+  &:global(.ant-card) {
+    background: #eef2ff;
+    border-color: #4f46e5;
+  }
 }
 
 .cardTitle {
@@ -128,17 +136,21 @@
 }
 
 .detailTitle {
-  margin: 4px 0 0;
+  margin: 4px 0 4px;
 }
 
 .detailTags {
-  margin-bottom: 16px;
+  &:global(.ant-space) {
+    margin-bottom: 16px;
+  }
 }
 
 .contentPreview {
-  max-height: calc(100dvh - 220px);
-  overflow-y: auto;
-  white-space: pre-wrap;
+  &:global(.ant-card) {
+    max-height: calc(100dvh - 220px);
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
 }
 
 .previewText {

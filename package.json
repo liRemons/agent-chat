@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "dev": "next dev",
-    "build": "next build && node copy-assets.js",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack && node copy-assets.js",
     "start": "next start",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:restart": "pm2 restart agent-chat",
@@ -15,6 +15,8 @@
     "@langchain/core": "latest",
     "@langchain/openai": "latest",
     "antd": "^6.4.3",
+    "less": "^4.6.4",
+    "less-loader": "^13.0.0",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",

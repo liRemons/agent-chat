@@ -1,7 +1,7 @@
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { Button, Input } from 'antd';
 import { KeyboardEvent } from 'react';
-import styles from './Chat.module.css';
+import styles from './Chat.module.less';
 import type { ChatConversation } from './types';
 import { formatConversationTime } from './chatStorage';
 

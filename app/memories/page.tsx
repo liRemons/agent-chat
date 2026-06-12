@@ -5,8 +5,8 @@ import { ArrowLeftOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, SaveOu
 import { Button, Card, Empty, Flex, Form, Input, Modal, Select, Space, Spin, Tag } from 'antd';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAppMessage } from '@/components/AppMessage';
-import { FormEvent, useCallback, useMemo, useState } from 'react';
-import styles from './Memories.module.css';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import styles from './Memories.module.less';
 
 type MemoryScope = 'project' | 'global';
 // memory 表示长期记忆文件，prompt 表示用户可复用的常用提示词文件。
@@ -140,13 +140,7 @@ function createMemoryItem(formState: MemoryFormState): MemoryItem {
 
 export default function MemoriesPage() {
   // 记忆中心页面：负责展示、筛选、新增和删除项目级/全局级记忆。
-  const [items, setItems] = useState<MemoryItem[]>(() => {
-    if (typeof window === 'undefined') {
-      return [];
-    }
-
-    return readStoredMemories();
-  });
+  const [items, setItems] = useState<MemoryItem[]>([]);
   const [formState, setFormState] = useState<MemoryFormState>(emptyFormState);
   const [activeScope, setActiveScope] = useState<MemoryScope | 'all'>('all');
   const [activeKind, setActiveKind] = useState<MemoryKind | 'all'>('all');
@@ -185,6 +179,10 @@ export default function MemoriesPage() {
       setIsLoading(false);
     }
   }, [message]);
+
+  useEffect(() => {
+    loadMemories();
+  }, [loadMemories]);
 
   function updateFormField<FieldName extends keyof MemoryFormState>(fieldName: FieldName, value: MemoryFormState[FieldName]) {
     // 表单字段统一从这里更新，保证新增弹窗的状态结构始终完整。
@@ -347,9 +345,9 @@ export default function MemoriesPage() {
           title={
             <div>
               <span className={styles.mutedText}>当前选中</span>
-              <h2 className={styles.detailTitle}>
+              <h3 className={styles.detailTitle}>
                 {selectedItem?.title || '暂无记忆'}
-              </h2>
+              </h3>
             </div>
           }
           extra={

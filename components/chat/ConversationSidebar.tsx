@@ -1,7 +1,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Space } from 'antd';
 import { KeyboardEvent } from 'react';
-import styles from './Chat.module.css';
+import styles from './Chat.module.less';
 import type { ChatConversation } from './types';
 import { ConversationList } from './ConversationList';
 

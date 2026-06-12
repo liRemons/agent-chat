@@ -14,10 +14,27 @@ interface IncomingMessage {
   content: string;
 }
 
+interface IncomingMemory {
+  scope?: unknown;
+  kind?: unknown;
+  title?: unknown;
+  summary?: unknown;
+  content?: unknown;
+}
+
+interface NormalizedMemory {
+  scope: 'project' | 'global';
+  kind: 'memory' | 'prompt';
+  title: string;
+  summary: string;
+  content: string;
+}
+
 interface ChatRequestBody {
   messages?: IncomingMessage[];
   conversationId?: string;
   settings?: IncomingModelSettings;
+  memories?: IncomingMemory[];
 }
 
 function normalizeMessages(messages: IncomingMessage[] | undefined) {
@@ -28,6 +45,19 @@ function normalizeMessages(messages: IncomingMessage[] | undefined) {
       role: message.role,
       content: message.content.trim(),
     }));
+}
+
+function normalizeMemories(memories: IncomingMemory[] | undefined): NormalizedMemory[] {
+  return (memories ?? [])
+    .map(memory => ({
+      scope: memory.scope === 'global' ? 'global' : 'project',
+      kind: memory.kind === 'prompt' ? 'prompt' : 'memory',
+      title: typeof memory.title === 'string' ? memory.title.trim() : '',
+      summary: typeof memory.summary === 'string' ? memory.summary.trim() : '',
+      content: typeof memory.content === 'string' ? memory.content.trim() : '',
+    }))
+    .filter(memory => memory.title && memory.content)
+    .slice(0, 20);
 }
 
 function getLatestUserInput(messages: IncomingMessage[]) {
@@ -58,6 +88,38 @@ function streamPlainText(text: string) {
       },
     },
   );
+}
+
+function stripWrappingQuotes(value: string) {
+  return value
+    .trim()
+    .replace(/^[“”"'「」『』]+/, '')
+    .replace(/[“”"'「」『』]+$/, '')
+    .trim();
+}
+
+function findDirectMemoryReply(userInput: string, memories: NormalizedMemory[]) {
+  const directRulePatterns = [
+    /发送[“”"'「」『』]?(.+?)[“”"'「」『』]?时[，,]?\s*(?:必须|请|需要)?回复[：:]\s*([\s\S]+)/,
+    /当(?:用户)?(?:发送|输入|说)[“”"'「」『』]?(.+?)[“”"'「」『』]?时[，,]?\s*(?:必须|请|需要)?回复[：:]\s*([\s\S]+)/,
+  ];
+
+  for (const memory of memories) {
+    for (const directRulePattern of directRulePatterns) {
+      const matchedRule = memory.content.match(directRulePattern);
+      if (!matchedRule) {
+        continue;
+      }
+
+      const triggerText = stripWrappingQuotes(matchedRule[1] ?? '');
+      const replyText = stripWrappingQuotes(matchedRule[2] ?? '');
+      if (triggerText && replyText && userInput.trim() === triggerText) {
+        return replyText;
+      }
+    }
+  }
+
+  return '';
 }
 
 async function resolveWithTimeout<T>(task: Promise<T>, timeoutMs: number, timeoutValue: T): Promise<T> {
@@ -101,6 +163,7 @@ export async function POST(request: Request) {
     const userId = session.userId;
     const conversationId = body.conversationId ?? requestId;
     const conversationMessages = normalizeMessages(body.messages);
+    const memoryContext = normalizeMemories(body.memories);
     const userInput = getLatestUserInput(conversationMessages);
 
     writeAuditLog({
@@ -123,6 +186,11 @@ export async function POST(request: Request) {
       return streamPlainText(inputGuardrailResult.reason);
     }
 
+    const directMemoryReply = findDirectMemoryReply(userInput, memoryContext);
+    if (directMemoryReply) {
+      return streamPlainText(redactSensitiveText(directMemoryReply));
+    }
+
     const agentOutput = await resolveWithTimeout(
       // runAgent 会串起模型、上下文压缩、工具调用和审计日志。
       runAgent({
@@ -132,6 +200,7 @@ export async function POST(request: Request) {
         role: 'user',
         input: userInput,
         history: conversationMessages,
+        memories: memoryContext,
         modelSettings,
       }),
       agentConfig.requestTimeoutMs,

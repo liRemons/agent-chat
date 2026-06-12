@@ -2,7 +2,7 @@ import { MenuOutlined, SendOutlined, SettingOutlined } from '@ant-design/icons';
 import { Avatar, Button, Card, Empty, Flex, Input, Layout, Space } from 'antd';
 import Link from 'next/link';
 import { FormEvent, KeyboardEvent, RefObject } from 'react';
-import styles from './Chat.module.css';
+import styles from './Chat.module.less';
 import type { ChatConversation, ChatMessage } from './types';
 import { MarkdownMessage } from './MarkdownMessage';
 
@@ -89,7 +89,11 @@ export function ChatMainSection({
                       <span className={isUserMessage ? styles.bubbleRole : `${styles.bubbleRole} ${styles.mutedText}`}>
                         {isUserMessage ? '我' : 'AI 助手'}
                       </span>
-                      <MarkdownMessage content={message.content || '正在生成回复...'} isUserMessage={isUserMessage} />
+                      <MarkdownMessage
+                        content={message.content}
+                        isGenerating={!isUserMessage && isLoading && message.content.length === 0}
+                        isUserMessage={isUserMessage}
+                      />
                     </Card>
                     {isUserMessage ? <Avatar className={styles.userAvatar}>我</Avatar> : null}
                   </Flex>
@@ -103,6 +107,7 @@ export function ChatMainSection({
       <Layout.Footer className={styles.inputFooter}>
         <form onSubmit={onSubmit} className={styles.inputForm}>
           <Input.TextArea
+            className={styles.messageInput}
             autoSize={{ minRows: 1, maxRows: 5 }}
             aria-label="输入你的需求"
             placeholder={sessionReady ? '输入你的问题，Enter 发送，Shift + Enter 换行' : '正在初始化会话...'}

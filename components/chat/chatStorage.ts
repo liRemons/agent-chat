@@ -1,4 +1,4 @@
-import type { AgentSettings, ChatConversation } from './types';
+import type { AgentMemoryContext, AgentSettings, ChatConversation } from './types';
 
 export const typewriterIntervalMs = 12;
 
@@ -6,6 +6,7 @@ export const typewriterIntervalMs = 12;
 export const conversationsStorageKey = 'remons.agent.chat.conversations';
 export const activeConversationStorageKey = 'remons.agent.chat.activeConversationId';
 export const agentSettingsStorageKey = 'remons.agent.chat.agentSettings';
+export const memoriesStorageKey = 'agent-chat:memories';
 export const autoScrollThresholdPx = 96;
 
 export const emptyAgentSettings: AgentSettings = {
@@ -70,6 +71,47 @@ export function parseStoredAgentSettings(value: string | null): AgentSettings {
     };
   } catch {
     return emptyAgentSettings;
+  }
+}
+
+function stripMemoryFrontmatter(content: string) {
+  if (!content.startsWith('---')) {
+    return content.trim();
+  }
+
+  const frontmatterEndIndex = content.indexOf('---', 3);
+  if (frontmatterEndIndex < 0) {
+    return content.trim();
+  }
+
+  return content.slice(frontmatterEndIndex + 3).trim();
+}
+
+export function parseStoredMemories(value: string | null): AgentMemoryContext[] {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const storedMemories = JSON.parse(value) as Partial<AgentMemoryContext>[];
+    if (!Array.isArray(storedMemories)) {
+      return [];
+    }
+
+    return storedMemories
+      .filter(memory => memory.scope === 'project' || memory.scope === 'global')
+      .filter(memory => memory.kind === 'memory' || memory.kind === 'prompt')
+      .map(memory => ({
+        scope: memory.scope === 'global' ? 'global' : 'project',
+        kind: memory.kind === 'prompt' ? 'prompt' : 'memory',
+        title: String(memory.title ?? '').trim(),
+        summary: String(memory.summary ?? '').trim(),
+        content: stripMemoryFrontmatter(String(memory.content ?? '')),
+      }))
+      .filter(memory => memory.title && memory.content)
+      .slice(0, 20);
+  } catch {
+    return [];
   }
 }
 
