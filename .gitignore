@@ -76,7 +76,41 @@ web_modules/
 .parcel-cache
 
 # Next.js build output
-.next
+# 先忽略整个 .next 目录
+/.next/**
+
+# 再白名单放行 start 必需的目录和文件
+# --- 必需目录 ---
+!/.next/server/
+!/.next/server/**
+!/.next/static/
+!/.next/static/**
+!/.next/standalone/
+!/.next/standalone/**
+
+# --- 必需文件 ---
+!/.next/BUILD_ID
+!/.next/build-manifest.json
+!/.next/react-loadable-manifest.json
+!/.next/package.json
+!/.next/app-path-routes-manifest.json
+!/.next/prerender-manifest.json
+!/.next/routes-manifest.json
+!/.next/required-server-files.js
+!/.next/required-server-files.json
+!/.next/images-manifest.json
+
+# --------------------------
+# 3. 明确忽略 .next 中非必需的文件/目录
+# --------------------------
+/.next/cache/
+/.next/diagnostics/
+/.next/types/
+/.next/trace
+/.next/trace-build
+/.next/export-marker.json
+/.next/next-minimal-server.js.nft.json
+/.next/next-server.js.nft.json
 out
 
 # Nuxt.js build / generate output
