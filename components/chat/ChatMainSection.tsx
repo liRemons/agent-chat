@@ -86,9 +86,6 @@ export function ChatMainSection({
                   <Flex key={message.id} justify={isUserMessage ? 'flex-end' : 'flex-start'} gap={12}>
                     {!isUserMessage ? <Avatar className={styles.assistantAvatar}>✦</Avatar> : null}
                     <Card className={bubbleClassName}>
-                      <span className={isUserMessage ? styles.bubbleRole : `${styles.bubbleRole} ${styles.mutedText}`}>
-                        {isUserMessage ? '我' : 'AI 助手'}
-                      </span>
                       <MarkdownMessage
                         content={message.content}
                         isGenerating={!isUserMessage && isLoading && message.content.length === 0}

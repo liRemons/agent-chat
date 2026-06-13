@@ -4,6 +4,7 @@
     "build": "next build --webpack && node copy-assets.js",
     "start": "next start",
     "pm2:start": "pm2 start ecosystem.config.cjs",
+    "deploy": "git add . && git commit -m 'chore: auto deploy build artifacts' && git push",
     "pm2:restart": "pm2 restart agent-chat",
     "pm2:stop": "pm2 stop agent-chat",
     "pm2:logs": "pm2 logs agent-chat",
