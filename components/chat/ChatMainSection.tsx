@@ -107,7 +107,7 @@ export function ChatMainSection({
             className={styles.messageInput}
             autoSize={{ minRows: 1, maxRows: 5 }}
             aria-label="输入你的需求"
-            placeholder={sessionReady ? '输入你的问题，Enter 发送，Shift + Enter 换行' : '正在初始化会话...'}
+            placeholder={sessionReady ? 'Enter 发送，Shift + Enter 换行' : '正在初始化会话...'}
             value={input}
             disabled={isLoading || !sessionReady}
             onChange={event => onInputChange(event.target.value)}
