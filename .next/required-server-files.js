@@ -104,7 +104,7 @@ self.__SERVER_FILES_MANIFEST={
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "E:\\job\\project\\agent-chat",
+    "outputFileTracingRoot": "C:\\Users\\admin\\job\\agent-chat",
     "cacheComponents": false,
     "cacheLife": {
       "default": {
@@ -166,7 +166,7 @@ self.__SERVER_FILES_MANIFEST={
       "proxyPrefetch": "flexible",
       "optimisticClientCache": true,
       "manualClientBasePath": false,
-      "cpus": 3,
+      "cpus": 7,
       "memoryBasedWorkersCount": false,
       "imgOptConcurrency": null,
       "imgOptTimeoutInSeconds": 7,
@@ -304,11 +304,11 @@ self.__SERVER_FILES_MANIFEST={
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.ts",
     "turbopack": {
-      "root": "E:\\job\\project\\agent-chat"
+      "root": "C:\\Users\\admin\\job\\agent-chat"
     },
     "distDirRoot": ".next"
   },
-  "appDir": "E:\\job\\project\\agent-chat",
+  "appDir": "C:\\Users\\admin\\job\\agent-chat",
   "relativeAppDir": "",
   "files": [
     ".next\\package.json",
